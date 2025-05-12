@@ -1,5 +1,5 @@
 // A/B Optimizer Client Script
-// This structure supports both direct loading and JSONP loading
+// This structure supports direct loading, JSONP loading, and GitHub loading
 var abOptimizerInit = function(initFunction) {
   // If called via JSONP, execute the provided function
   if (typeof initFunction === 'function') {
@@ -14,9 +14,15 @@ var abOptimizerInit = function(initFunction) {
 
 function initABOptimizer() {
   return (function() {
-  // Configuration - These values will be replaced by the server when the script is served
-  const APP_URL = '{{APP_URL}}';
-  const WEBSITE_ID = '{{WEBSITE_ID}}';
+  // Configuration - These values will be set in one of three ways:
+  // 1. From window.abOptimizerConfig (GitHub hosted script)
+  // 2. Replaced by the server when the script is served directly
+  // 3. Set via JSONP parameters
+  
+  // Get configuration from global object if available
+  const config = window.abOptimizerConfig || {};
+  const APP_URL = config.apiUrl || '{{APP_URL}}';
+  const WEBSITE_ID = config.websiteId || '{{WEBSITE_ID}}';
   
   // For debugging, use a hard-coded host URL if the APP_URL is still a template
   const hostUrl = APP_URL.includes('{{') ? 'https://ab-optimizer.replit.app' : APP_URL;
@@ -30,6 +36,7 @@ function initABOptimizer() {
   console.log("[AB Optimizer] WEBSITE_ID:", WEBSITE_ID);
   console.log("[AB Optimizer] Using host URL:", hostUrl);
   console.log("[AB Optimizer] Design mode:", window.abOptimizerDesignMode ? "enabled" : "disabled");
+  console.log("[AB Optimizer] Configuration source:", window.abOptimizerConfig ? "GitHub Config" : "Direct/JSONP");
   
   // Debug all data-ab and data-id attributes on the page
   console.log("[AB Optimizer] Checking for elements with data-ab or data-id attributes...");
@@ -1887,15 +1894,23 @@ function initABOptimizer() {
   async function initDesignMode() {
     console.log("[AB Optimizer] Initializing design mode...");
     
-    // Get the website ID
+    // Get the website ID - with proper GitHub config support
     let websiteId = WEBSITE_ID;
     if (websiteId.includes('{{')) {
-      const scriptTag = document.querySelector('script[data-website-id]');
-      if (scriptTag) {
-        websiteId = scriptTag.getAttribute('data-website-id');
+      // Check if we have config from GitHub
+      if (window.abOptimizerConfig && window.abOptimizerConfig.websiteId) {
+        websiteId = window.abOptimizerConfig.websiteId;
+        console.log("[AB Optimizer] Using website ID from GitHub config:", websiteId);
       } else {
-        console.error("[AB Optimizer] Could not determine website ID");
-        websiteId = '1'; // Fallback
+        // Legacy fallback
+        const scriptTag = document.querySelector('script[data-website-id]');
+        if (scriptTag) {
+          websiteId = scriptTag.getAttribute('data-website-id');
+          console.log("[AB Optimizer] Using website ID from script tag:", websiteId);
+        } else {
+          console.error("[AB Optimizer] Could not determine website ID");
+          websiteId = '1'; // Fallback
+        }
       }
     }
     
@@ -3346,15 +3361,23 @@ function initABOptimizer() {
     async function showVariationsList() {
       console.log("[AB Optimizer] Showing variations list");
       
-      // Get the website ID
+      // Get the website ID - with GitHub config support
       let websiteId = WEBSITE_ID;
       if (websiteId.includes('{{')) {
-        const scriptTag = document.querySelector('script[data-website-id]');
-        if (scriptTag) {
-          websiteId = scriptTag.getAttribute('data-website-id');
+        // Check if we have config from GitHub
+        if (window.abOptimizerConfig && window.abOptimizerConfig.websiteId) {
+          websiteId = window.abOptimizerConfig.websiteId;
+          console.log("[AB Optimizer] Using website ID from GitHub config:", websiteId);
         } else {
-          alert("Could not determine website ID. Please check your installation.");
-          return;
+          // Legacy fallback
+          const scriptTag = document.querySelector('script[data-website-id]');
+          if (scriptTag) {
+            websiteId = scriptTag.getAttribute('data-website-id');
+            console.log("[AB Optimizer] Using website ID from script tag:", websiteId);
+          } else {
+            alert("Could not determine website ID. Please check your installation.");
+            return;
+          }
         }
       }
       
