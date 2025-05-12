@@ -1,4 +1,4 @@
-// A/B Optimizer Client Script
+// A/B Optimizer Client Script Hosted in Github
 // This structure supports direct loading, JSONP loading, and GitHub loading
 var abOptimizerInit = function(initFunction) {
   // If called via JSONP, execute the provided function
