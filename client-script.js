@@ -1,5 +1,5 @@
-// A/B Optimizer Client Script Hosted in Github
-// This structure supports direct loading, JSONP loading, and GitHub loading
+// A/B Optimizer Client Script Github
+// This structure supports both direct loading and JSONP loading
 var abOptimizerInit = function(initFunction) {
   // If called via JSONP, execute the provided function
   if (typeof initFunction === 'function') {
@@ -14,15 +14,9 @@ var abOptimizerInit = function(initFunction) {
 
 function initABOptimizer() {
   return (function() {
-  // Configuration - These values will be set in one of three ways:
-  // 1. From window.abOptimizerConfig (GitHub hosted script)
-  // 2. Replaced by the server when the script is served directly
-  // 3. Set via JSONP parameters
-  
-  // Get configuration from global object if available
-  const config = window.abOptimizerConfig || {};
-  const APP_URL = config.apiUrl || '{{APP_URL}}';
-  const WEBSITE_ID = config.websiteId || '{{WEBSITE_ID}}';
+  // Configuration - These values will be replaced by the server when the script is served
+  const APP_URL = '{{APP_URL}}';
+  const WEBSITE_ID = '{{WEBSITE_ID}}';
   
   // For debugging, use a hard-coded host URL if the APP_URL is still a template
   const hostUrl = APP_URL.includes('{{') ? 'https://ab-optimizer.replit.app' : APP_URL;
@@ -36,7 +30,6 @@ function initABOptimizer() {
   console.log("[AB Optimizer] WEBSITE_ID:", WEBSITE_ID);
   console.log("[AB Optimizer] Using host URL:", hostUrl);
   console.log("[AB Optimizer] Design mode:", window.abOptimizerDesignMode ? "enabled" : "disabled");
-  console.log("[AB Optimizer] Configuration source:", window.abOptimizerConfig ? "GitHub Config" : "Direct/JSONP");
   
   // Debug all data-ab and data-id attributes on the page
   console.log("[AB Optimizer] Checking for elements with data-ab or data-id attributes...");
@@ -1894,23 +1887,15 @@ function initABOptimizer() {
   async function initDesignMode() {
     console.log("[AB Optimizer] Initializing design mode...");
     
-    // Get the website ID - with proper GitHub config support
+    // Get the website ID
     let websiteId = WEBSITE_ID;
     if (websiteId.includes('{{')) {
-      // Check if we have config from GitHub
-      if (window.abOptimizerConfig && window.abOptimizerConfig.websiteId) {
-        websiteId = window.abOptimizerConfig.websiteId;
-        console.log("[AB Optimizer] Using website ID from GitHub config:", websiteId);
+      const scriptTag = document.querySelector('script[data-website-id]');
+      if (scriptTag) {
+        websiteId = scriptTag.getAttribute('data-website-id');
       } else {
-        // Legacy fallback
-        const scriptTag = document.querySelector('script[data-website-id]');
-        if (scriptTag) {
-          websiteId = scriptTag.getAttribute('data-website-id');
-          console.log("[AB Optimizer] Using website ID from script tag:", websiteId);
-        } else {
-          console.error("[AB Optimizer] Could not determine website ID");
-          websiteId = '1'; // Fallback
-        }
+        console.error("[AB Optimizer] Could not determine website ID");
+        websiteId = '1'; // Fallback
       }
     }
     
@@ -3361,23 +3346,15 @@ function initABOptimizer() {
     async function showVariationsList() {
       console.log("[AB Optimizer] Showing variations list");
       
-      // Get the website ID - with GitHub config support
+      // Get the website ID
       let websiteId = WEBSITE_ID;
       if (websiteId.includes('{{')) {
-        // Check if we have config from GitHub
-        if (window.abOptimizerConfig && window.abOptimizerConfig.websiteId) {
-          websiteId = window.abOptimizerConfig.websiteId;
-          console.log("[AB Optimizer] Using website ID from GitHub config:", websiteId);
+        const scriptTag = document.querySelector('script[data-website-id]');
+        if (scriptTag) {
+          websiteId = scriptTag.getAttribute('data-website-id');
         } else {
-          // Legacy fallback
-          const scriptTag = document.querySelector('script[data-website-id]');
-          if (scriptTag) {
-            websiteId = scriptTag.getAttribute('data-website-id');
-            console.log("[AB Optimizer] Using website ID from script tag:", websiteId);
-          } else {
-            alert("Could not determine website ID. Please check your installation.");
-            return;
-          }
+          alert("Could not determine website ID. Please check your installation.");
+          return;
         }
       }
       
@@ -3939,13 +3916,12 @@ function initABOptimizer() {
             let response;
             let errorMsg = '';
             
-            // Try the authenticated endpoint first
+            // Try the new PUT endpoint first (public, no auth required)
             try {
-              console.log(`[AB Optimizer] Attempting to update variation with authenticated endpoint: ${appUrl}/api/variations/${existingId}`);
+              console.log(`[AB Optimizer] Attempting to update variation with PUT endpoint: ${appUrl}/api/variations/${existingId}`);
               
               response = await fetch(`${appUrl}/api/variations/${existingId}`, {
-                method: 'PATCH',
-                credentials: 'include',
+                method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
                   'Accept': 'application/json'
@@ -3953,21 +3929,22 @@ function initABOptimizer() {
                 body: JSON.stringify({
                   name: variationData.name,
                   trafficAllocation: variationData.trafficAllocation,
-                  content: variationData.content
+                  elementData: variationData.content
                 })
               });
               
               if (!response.ok) {
-                errorMsg = `Authenticated API failed: ${response.status} ${response.statusText}`;
+                errorMsg = `PUT request failed: ${response.status} ${response.statusText}`;
                 console.warn(`[AB Optimizer] ${errorMsg}`);
                 throw new Error(errorMsg);
               }
-            } catch (authError) {
-              // If authenticated request fails, try the public endpoint
-              console.log(`[AB Optimizer] Authenticated endpoint failed, trying public endpoint`);
+            } catch (putError) {
+              // If PUT request fails, try the authenticated PATCH endpoint
+              console.log(`[AB Optimizer] PUT endpoint failed, trying authenticated PATCH endpoint`);
               
-              response = await fetch(`${appUrl}/api/public/variations/${existingId}`, {
+              response = await fetch(`${appUrl}/api/variations/${existingId}`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: {
                   'Content-Type': 'application/json',
                   'Accept': 'application/json'
@@ -4019,31 +3996,36 @@ function initABOptimizer() {
             let response;
             let errorMsg = '';
             
-            // Try the authenticated endpoint first
+            // Try the direct API endpoint first (no auth required)
             try {
-              console.log(`[AB Optimizer] Attempting to create variation with authenticated endpoint: ${appUrl}/api/variations/${websiteId}`);
+              console.log(`[AB Optimizer] Attempting to create variation with direct API endpoint: ${appUrl}/api/variations`);
               
-              response = await fetch(`${appUrl}/api/variations/${websiteId}`, {
+              response = await fetch(`${appUrl}/api/variations`, {
                 method: 'POST',
-                credentials: 'include',
                 headers: {
                   'Content-Type': 'application/json',
                   'Accept': 'application/json'
                 },
-                body: JSON.stringify(variationData)
+                body: JSON.stringify({
+                  name: variationData.name,
+                  websiteId: parseInt(websiteId),
+                  url: variationData.url,
+                  elementData: variationData.content
+                })
               });
               
               if (!response.ok) {
-                errorMsg = `Authenticated API failed: ${response.status} ${response.statusText}`;
+                errorMsg = `Direct API failed: ${response.status} ${response.statusText}`;
                 console.warn(`[AB Optimizer] ${errorMsg}`);
                 throw new Error(errorMsg);
               }
-            } catch (authError) {
-              // If authenticated request fails, try the public endpoint
-              console.log(`[AB Optimizer] Authenticated endpoint failed, trying public endpoint`);
+            } catch (directError) {
+              // If direct API fails, try the authenticated endpoint
+              console.log(`[AB Optimizer] Direct API failed, trying authenticated endpoint`);
               
-              response = await fetch(`${appUrl}/api/public/variations/${websiteId}`, {
+              response = await fetch(`${appUrl}/api/variations/${websiteId}`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                   'Content-Type': 'application/json',
                   'Accept': 'application/json'
