@@ -19,7 +19,7 @@ function initABOptimizer() {
   const WEBSITE_ID = '{{WEBSITE_ID}}';
   
   // For debugging, use a hard-coded host URL if the APP_URL is still a template
-  const hostUrl = APP_URL.includes('{{') ? 'https://ab-optimizer.replit.app' : APP_URL;
+  const hostUrl = APP_URL.includes('{{') ? 'https://ea96e180-9637-44fe-94c9-5933303f65bd-00-2uzgjp8kyk21k.pike.replit.dev/' : APP_URL;
   
   // Check and flag design mode right away for consistent element handling
   window.abOptimizerDesignMode = new URLSearchParams(window.location.search).has('design');
